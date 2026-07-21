@@ -12,10 +12,8 @@ This is a script development workspace, not a general software project — there
 | `main.bas` | Main menu script for the configuration cabinet. |
 | `configcabs.bas` | Configuration cabinet script — lets a user configure their own cabinets from within the arcade. |
 | `configcabspec.md` | Spec for the configuration cabinet suite. |
-| `game.bas` | Game selection / launch script. |
-| `keyboard.bas` | Reusable on-screen keyboard overlay, invoked via `RUN` from other scripts. |
-| `cabinetsdb.txt` | Cabinet database file. |
-| `copytocabs.sh` | Helper script to copy `.bas` files to a local cabinet deployment path. |
+| `workshop/game.bas` | Game selection / launch script. |
+| `workshop/keyboard.bas` | Reusable on-screen keyboard overlay, invoked via `RUN` from other scripts. |
 
 ## AGEBasic in a nutshell
 
