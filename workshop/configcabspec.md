@@ -62,6 +62,11 @@ EXIT option: each subprogram must have it's own EXIT option:
 * `EXIT Without save`: loose configuration.
 Pressing `A` will exit the subprogram.
 
+# External docs
+
+- user manual: `/mnt/d/AgeOfJoyQuartzDoc\content\Documents\Cabinets\CDL the Cabinet Description Language.md `
+- the cabinet configuration in .net: `/mnt/c/Users\curif\desarr\ageofjoy.0.5.1\AgeOfJoy-2022.1\Assets\curif\LibRetroWrapper\CabinetInformation.cs`
+
 # Next step
 
 Request the user what is the next configuration or action before proceed.

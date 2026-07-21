@@ -33,7 +33,7 @@
 2130 END
 
 2200 REM JOYPAD_B: select the current menu option
-2210 IF MENUSEL = 0 THEN GOSUB 2310 ELSE GOSUB 2410
+2210 IF MENUSEL = 0 THEN GOSUB 2310 ELSE IF MENUSEL = 1 THEN GOSUB 2340 ELSE GOSUB 2410
 2220 END
 
 2300 REM launch the GAME subprogram; hand off input ownership to it.
@@ -43,6 +43,11 @@
 2310 OFFEVENT "mainmenu"
 2320 RUN "game.bas"
 2330 RETURN
+
+2335 REM launch the CRT subprogram; same hand-off mechanism as GAME above.
+2340 OFFEVENT "mainmenu"
+2350 RUN "crt.bas"
+2360 RETURN
 
 2400 REM other menu options: not implemented yet
 2410 PRINT 0, 3, lineEmpty, 0, 0

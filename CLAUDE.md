@@ -37,6 +37,52 @@ beyond the summary in the main prompt file.
 - Registry mutations (`CABDBADD`/`CABDBASSIGN`/`CABDBDELETE`) only change in-memory state — a script must
   call `CABDBSAVE()` or the changes are lost on next room reload.
 
+## Good AGEBasic practices
+
+Lessons learned while writing scripts in this repo — apply these even when `agebasic_prompt.md` doesn't
+call them out as a rule:
+
+- **Prefer `ARRAY(val1, val2, ...)` over `DIM` + indexed `LETS` for fixed literal lists.** `DIM
+  X[n]` followed by several `LETS X[0], X[1], ... = ...` lines is verbose and error-prone (easy to
+  miscount indices across lines). When the list is a known-at-write-time set of literals, build it in one
+  line: `LET X = ARRAY("a", "b", "c")`. Reserve `DIM` for arrays that are sized/filled dynamically (e.g.
+  from a loop or a runtime count) or mutated by index later.
+- **Derive counts with `LEN(array)` instead of hand-maintained `*COUNT` variables** when the array was
+  built with `ARRAY(...)` — a separate count variable can drift out of sync if the literal list is edited
+  later.
+- **Escape a `FOR` loop early with `GOTO` once you've found what you're looking for — don't scan the rest
+  of the array for nothing.** AGEBasic has no `BREAK`/`EXIT FOR`. A linear search should look like:
+  ```
+  310 FOR idx = 0 TO COUNT - 1
+  320   IF LIST[idx] = TARGET THEN LET FOUNDIDX = idx : GOTO 340
+  330 NEXT idx
+  340 REM ... code continues here, loop is done either way
+  ```
+  `GOTO`ing to the line right after the matching `NEXT` is the idiomatic break — it's valid because `GOTO`
+  can target any line number, and the abandoned `FOR`'s loop state is simply discarded. Do this for every
+  "does this value exist in this array / what's its index" search — it's the common case in this repo
+  (resolving a stored config string to its index in an options list).
+- **Don't write `ELSE GOTO <next line>` when the next line is already the fall-through.** `IF cond THEN
+  GOTO X ELSE GOTO Y` where `Y` is the line immediately following is a no-op `ELSE` — execution falls
+  through to `Y` on its own if `cond` is false. Just write `IF cond THEN GOTO X` and let it fall through.
+- **Chain mutually-exclusive `IF FIELD = n THEN ...` rows into one `ELSE IF` statement instead of a run of
+  separate lines that each re-test from scratch.** A sequence like:
+  ```
+  3210 IF FIELD = 0 THEN ...
+  3220 IF FIELD = 1 THEN ...
+  3230 IF FIELD = 2 THEN ...
+  ```
+  evaluates every condition even after the match, and reads as N independent branches when only one can
+  ever fire. Merge them into a single logical statement, continuing across physical lines (no line number
+  on the continuation) — the pattern already used in `configcabs.bas`:
+  ```
+  3210 IF FIELD = 0 THEN ...
+       ELSE IF FIELD = 1 THEN ...
+       ELSE IF FIELD = 2 THEN ...
+  ```
+  Only the continuation lines are indented and unnumbered; the next real line number resumes after the
+  chain. This is the standard shape for a field-cursor `LEFT`/`RIGHT`/`UP`/`DOWN` handler in this repo.
+
 ## Code architecture / conventions seen in this repo
 
 `configcabdb.bas` is representative of the typical script shape:
@@ -51,6 +97,26 @@ beyond the summary in the main prompt file.
 When writing new cabinet-config-style scripts, follow this same layout: setup → input polling loop → GOSUB
 subroutines for drawing → END. Keep drawing logic in subroutines rather than inlining it in the loop, matching
 the existing pattern of `GOSUB 500`/`GOSUB 510`.
+
+### Screen zone ownership in the `workshop/` family (`main.bas` + its `RUN`-launched children)
+
+`main.bas` is the hub: it draws the title row (0), the six-item menu row (1), and the separator (2), then
+hands off control by calling `RUN "<child>.bas"` (e.g. `game.bas`, `crt.bas`) with those rows already on
+screen. A callee launched this way:
+
+- **Must not `CLS`.** The screen isn't cleared between `RUN` calls — whatever `main.bas` (or a previous
+  callee) last drew is still there when the new script starts.
+- **Must not redraw the title/menu/separator rows.** Those belong to `main.bas`; copying its title text or
+  its six-item menu list into a child script duplicates code that only `main.bas` should own and drifts out
+  of sync with it over time. A child only draws its own content zone (rows 3 onward) and its own footer row
+  (`height - 1`).
+- **Doesn't need to clean up its zone on exit either** — the `main_resume` handler back in `main.bas`
+  (`ONCUSTOM("main_resume")`, see `main.bas`'s own resume block) does a full `CLS` + redraw of everything
+  when it regains control, so a callee's leftover content is wiped there, not by the callee itself.
+
+This mirrors how `keyboard.bas` already behaves (see its own header comment): it paints an overlay *on top
+of* the caller's existing screen without `CLS`, and only the caller is responsible for blanking the area
+underneath once the overlay is done.
 
 ## No build/test tooling in this repo
 
