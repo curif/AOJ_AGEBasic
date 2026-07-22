@@ -13,6 +13,9 @@
 130 LET lineEmpty = (width - 1) * " "
 140 LET MENUSEL = 0
 
+190 REM start the shared right-joystick cabinet-rotation handler (stays live across all workshop screens)
+195 RUN "rotate.bas"
+
 200 REM initial draw and event registration
 210 CLS
 220 GOSUB 7010
@@ -56,6 +59,7 @@
 2440 RETURN
 
 2500 REM JOYPAD_Y: leave the configuration tool
+2505 OFFEVENT "rotate"
 2510 SHUTDOWN
 
 2600 REM main_resume handoff (GOTO target of ONCUSTOM "main_resume"): the

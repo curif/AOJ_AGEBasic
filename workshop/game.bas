@@ -1,7 +1,6 @@
 
 20 LET CABNAME = "test"
 30 LET ROMLIST = GETFILESARRAY(COMBINEPATH(ROOTPATH(), "downloads"), 0)
-35 CALL SORT(ROMLIST)
 40 LET ROMCOUNT = LEN(ROMLIST)
 50 LET DISKCORES = GETFILESARRAY(COMBINEPATH(ROOTPATH(), "cores"), 0)
 60 LET DISKCORECOUNT = LEN(DISKCORES)
@@ -9,7 +8,9 @@
 80 IF DISKCORECOUNT = 0 THEN GOTO 130
 90 FOR idx = 0 TO DISKCORECOUNT - 1
 100   LET fname = DISKCORES[idx]
-105   LET cname = IIF(LEN(fname) >= 20 && SUBSTR(fname, LEN(fname) - 20, 20) = "_libretro_android.so", SUBSTR(fname, 0, LEN(fname) - 20), "")
+101   LET cname = ""
+102   IF LEN(fname) < 20 THEN GOTO 110
+104   IF SUBSTR(fname, LEN(fname) - 20, 20) = "_libretro_android.so" THEN LET cname = SUBSTR(fname, 0, LEN(fname) - 20)
 110   IF cname != "" && NOT(ISMEMBER(CORENAMES, cname, ",")) THEN LET CORENAMES = ADDMEMBER(CORENAMES, cname, ",")
 120 NEXT idx
 130 LET CORECOUNT = COUNTMEMBERS(CORENAMES, ",")
@@ -17,7 +18,6 @@
 134 FOR idx = 0 TO CORECOUNT - 1
 136   LET CORELIST[idx] = GETMEMBER(CORENAMES, idx, ",")
 138 NEXT idx
-139 CALL SORT(CORELIST)
 140 DIM SPACELIST[8]
 150 LETS SPACELIST[0], SPACELIST[1], SPACELIST[2], SPACELIST[3], SPACELIST[4], SPACELIST[5], SPACELIST[6], SPACELIST[7] = "1x1x1", "1x2x1", "2x1x1", "2x2x1", "1x1x2", "2x1x2", "1x2x2", "2x2x2"
 160 LET SPACECOUNT = 8
@@ -51,7 +51,7 @@
 430 GOSUB 8110
 440 GOSUB 8210
 450 GOSUB 8310
-460 GOSUB 8510
+460 GOSUB 8505
 470 GOSUB 8910
 471 REM registered once here (game.bas's own setup), not inside a nested
 472 REM control-handler context right before RUN "keyboard.bas" -- mirrors
@@ -63,13 +63,13 @@
 
 3000 REM JOYPAD_DOWN: move field cursor down
 3010 LET FIELD = FIELD + IIF(FIELD < 6, 1, 0)
-3030 GOSUB 8310 : GOSUB 8510
+3030 GOSUB 8310 : GOSUB 8505
 3040 END
 
 3100 REM JOYPAD_UP: move field cursor up, or exit without saving if already at top
 3110 IF FIELD = 0 THEN GOTO 3160
 3120 LET FIELD = FIELD - 1
-3140 GOSUB 8310 : GOSUB 8510
+3140 GOSUB 8310 : GOSUB 8505
 3150 END
 
 3160 REM exit without saving: END must not be colon-chained onto the same
@@ -133,7 +133,7 @@
 3461 NEXT kbClearRow
 3463 LET AUTHORVAL = KEYBOARDINPUT
 3465 GOSUB 8910
-3467 GOSUB 8010 : GOSUB 8110 : GOSUB 8210 : GOSUB 8310 : GOSUB 8510
+3467 GOSUB 8010 : GOSUB 8110 : GOSUB 8210 : GOSUB 8310 : GOSUB 8505
 3469 END
 
 3500 REM commit the selected EXIT action (GOSUB target)
@@ -154,7 +154,7 @@
 3800 REM JOYPAD_Y: jump to the EXIT field so the user can choose SAVE or
 3802 REM EXIT-without-save, same as reaching that row via UP/DOWN.
 3810 LET FIELD = 6
-3812 GOSUB 8310 : GOSUB 8510
+3812 GOSUB 8310 : GOSUB 8505
 3814 END
 
 8000 REM draw title row
