@@ -11,7 +11,7 @@
 14 REM                        fired via EVENTTRIGGER when the user presses Y
 15 REM                        or OK (default "keyboard_done")
 16 REM Result: KEYBOARDINPUT holds the final typed text when KEYBOARDRESUMEEVENT fires.
-17 REM Layout: QWERTY rows with numbers on row 1, grid centered on screen, SPACE key widened.
+17 REM Layout: QWERTY rows with numbers on row 1 and a symbol row (* / , .) below ZXCVBNM, grid centered on screen, SPACE key widened.
 18 REM Integration: this script does NOT CLS -- it paints a gray panel (DBOX) on top of
 19 REM whatever the caller already has on screen and draws its title/textbox/keys inside
 20 REM that panel. When KEYBOARDRESUMEEVENT fires, the panel is still sitting on screen;
@@ -28,6 +28,7 @@
 62 LET KB_ROW1 = "QWERTYUIOP"
 64 LET KB_ROW2 = "ASDFGHJKL"
 66 LET KB_ROW3 = "ZXCVBNM"
+68 LET KB_ROW4 = "*/,."
 90 DIM KB_SPECIAL[3]
 100 LETS KB_SPECIAL[0], KB_SPECIAL[1], KB_SPECIAL[2] = "DEL", "SPACE", "OK"
 102 DIM KB_SPECIAL_LABEL[3]
@@ -46,8 +47,9 @@
 154 LET KB_ROW1W = LEN(KB_ROW1) * 2
 156 LET KB_ROW2W = LEN(KB_ROW2) * 2
 158 LET KB_ROW3W = LEN(KB_ROW3) * 2
+159 LET KB_ROW4W = LEN(KB_ROW4) * 2
 160 LET KB_SPECIALW = LEN(KB_SPECIAL_LABEL[0]) + LEN(KB_SPECIAL_LABEL[1]) + LEN(KB_SPECIAL_LABEL[2]) + 4
-170 LET KB_GRIDW = MAX(MAX(MAX(KB_ROW0W, KB_ROW1W), MAX(KB_ROW2W, KB_ROW3W)), KB_SPECIALW)
+170 LET KB_GRIDW = MAX(MAX(MAX(KB_ROW0W, KB_ROW1W), MAX(KB_ROW2W, KB_ROW3W)), MAX(KB_ROW4W, KB_SPECIALW))
 172 LET KB_GRIDW = MIN(KB_GRIDW, width - 1)
 
 180 REM per-row horizontal offsets center each row within the grid, and the grid within the screen
@@ -56,10 +58,11 @@
 186 LET KB_OFF1 = INT((KB_GRIDW - KB_ROW1W) / 2)
 188 LET KB_OFF2 = INT((KB_GRIDW - KB_ROW2W) / 2)
 190 LET KB_OFF3 = INT((KB_GRIDW - KB_ROW3W) / 2)
+191 LET KB_OFF4 = INT((KB_GRIDW - KB_ROW4W) / 2)
 192 LET KB_OFFSPECIAL = INT((KB_GRIDW - KB_SPECIALW) / 2)
 
 196 REM vertical offset centers the title/input/grid/special block above the footer bar
-198 LET KB_OFFSETY = MAX(INT((height - 1 - 10) / 2), 0)
+198 LET KB_OFFSETY = MAX(INT((height - 1 - 11) / 2), 0)
 
 199 REM panel geometry: gray DBOX behind title/textbox/grid (rows 0-8 relative to
 201 REM KB_OFFSETY), clamped against the screen's real char/pixel bounds (SCREENWIDTH/
@@ -68,7 +71,7 @@
 204 LET KB_PADX = 2
 205 LET KB_PADY = 1
 206 LET KB_BOXW = KB_GRIDW + KB_PADX * 2
-207 LET KB_BOXH = 9 + KB_PADY * 2
+207 LET KB_BOXH = 10 + KB_PADY * 2
 208 LET KB_BOXX = MAX(KB_OFFSETX - KB_PADX, 0)
 209 LET KB_BOXY = MAX(KB_OFFSETY - KB_PADY, 0)
 210 LET KB_BOXW2 = MIN(KB_BOXW, width - KB_BOXX)
@@ -90,7 +93,7 @@
 280 END
 
 3000 REM JOYPAD_DOWN: move to the next row, clamping the column to fit
-3010 LET KB_ROW = MIN(KB_ROW + 1, 4)
+3010 LET KB_ROW = MIN(KB_ROW + 1, 5)
 3020 GOSUB 8810 : LET KB_COL = MIN(KB_COL, KB_ROWLEN - 1)
 3030 GOSUB 8210
 3040 END
@@ -112,9 +115,9 @@
 3330 GOSUB 8210
 3340 END
 
-3400 REM JOYPAD_B: press the currently selected key (letter/digit rows)
-3410 IF KB_ROW = 4 THEN GOTO 3450
-3420 IF LEN(KEYBOARDINPUT) < KEYBOARDMAXLEN THEN LET KEYBOARDINPUT = KEYBOARDINPUT + IIF(KB_ROW = 0, SUBSTR(KB_ROW0, KB_COL, 1), IIF(KB_ROW = 1, SUBSTR(KB_ROW1, KB_COL, 1), IIF(KB_ROW = 2, SUBSTR(KB_ROW2, KB_COL, 1), SUBSTR(KB_ROW3, KB_COL, 1))))
+3400 REM JOYPAD_B: press the currently selected key (letter/digit/symbol rows)
+3410 IF KB_ROW = 5 THEN GOTO 3450
+3420 IF LEN(KEYBOARDINPUT) < KEYBOARDMAXLEN THEN LET KEYBOARDINPUT = KEYBOARDINPUT + IIF(KB_ROW = 0, SUBSTR(KB_ROW0, KB_COL, 1), IIF(KB_ROW = 1, SUBSTR(KB_ROW1, KB_COL, 1), IIF(KB_ROW = 2, SUBSTR(KB_ROW2, KB_COL, 1), IIF(KB_ROW = 3, SUBSTR(KB_ROW3, KB_COL, 1), SUBSTR(KB_ROW4, KB_COL, 1)))))
 3430 GOSUB 8110
 3440 END
 
@@ -161,9 +164,12 @@
 8240 FOR idx = 0 TO LEN(KB_ROW3) - 1
 8242   PRINT KB_OFFSETX + KB_OFF3 + idx * 2, KB_OFFSETY + 7, SUBSTR(KB_ROW3, idx, 1) + " ", (KB_ROW = 3 && KB_COL = idx), 0
 8244 NEXT idx
+8245 FOR idx = 0 TO LEN(KB_ROW4) - 1
+8246   PRINT KB_OFFSETX + KB_OFF4 + idx * 2, KB_OFFSETY + 8, SUBSTR(KB_ROW4, idx, 1) + " ", (KB_ROW = 4 && KB_COL = idx), 0
+8248 NEXT idx
 8250 LET kbx = KB_OFFSETX + KB_OFFSPECIAL
 8252 FOR idx = 0 TO 2
-8254   PRINT kbx, KB_OFFSETY + 8, KB_SPECIAL_LABEL[idx], (KB_ROW = 4 && KB_COL = idx), 0
+8254   PRINT kbx, KB_OFFSETY + 9, KB_SPECIAL_LABEL[idx], (KB_ROW = 5 && KB_COL = idx), 0
 8256   LET kbx = kbx + LEN(KB_SPECIAL_LABEL[idx]) + 2
 8258 NEXT idx
 8260 FGCOLOR "WHITE" : BGCOLOR "BLUE"
@@ -179,7 +185,8 @@
 8820 IF KB_ROW = 1 THEN LET KB_ROWLEN = LEN(KB_ROW1)
 8830 IF KB_ROW = 2 THEN LET KB_ROWLEN = LEN(KB_ROW2)
 8840 IF KB_ROW = 3 THEN LET KB_ROWLEN = LEN(KB_ROW3)
-8845 IF KB_ROW = 4 THEN LET KB_ROWLEN = 3
+8842 IF KB_ROW = 4 THEN LET KB_ROWLEN = LEN(KB_ROW4)
+8845 IF KB_ROW = 5 THEN LET KB_ROWLEN = 3
 8850 RETURN
 
 8900 REM register control event handlers as group "keyboard"; OFFEVENT'd as

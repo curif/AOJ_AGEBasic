@@ -1,7 +1,5 @@
 
 20 LET CABNAME = "test"
-30 LET ROMLIST = GETFILESARRAY(COMBINEPATH(ROOTPATH(), "downloads"), 0)
-40 LET ROMCOUNT = LEN(ROMLIST)
 50 LET DISKCORES = GETFILESARRAY(COMBINEPATH(ROOTPATH(), "cores"), 0)
 60 LET DISKCORECOUNT = LEN(DISKCORES)
 70 LET CORENAMES = "mame2003+,mame2010,fbneo,flycast"
@@ -27,11 +25,6 @@
 195 LET AUTHORVAL = CABDBGETINFO(CABNAME, "author")
 200 LET TTLVAL = VAL(CABDBGETINFO(CABNAME, "timetoload"))
 210 LET SPACEVAL = CABDBGETINFO(CABNAME, "space")
-220 LET ROMIDX = -1
-225 IF ROMCOUNT = 0 THEN GOTO 260
-230 FOR idx = 0 TO ROMCOUNT - 1
-240   IF ROMLIST[idx] = ROMVAL THEN LET ROMIDX = idx : GOTO 260
-250 NEXT idx
 260 LET COREIDX = -1
 270 FOR idx = 0 TO CORECOUNT - 1
 280   IF CORELIST[idx] = COREVAL THEN LET COREIDX = idx : GOTO 300
@@ -59,6 +52,7 @@
 474 REM main.bas:22) so the handler is reliably in place before it is ever
 475 REM needed, regardless of RUN nesting depth.
 476 ONEVENT ONCUSTOM("game_author_resume") GOTO 3450 NAME "game_kb"
+477 ONEVENT ONCUSTOM("game_rom_resume") GOTO 3960 NAME "game_kb"
 480 END
 
 3000 REM JOYPAD_DOWN: move field cursor down
@@ -80,8 +74,7 @@
 3165 END
 
 3200 REM JOYPAD_LEFT: decrease the value of the current field
-3210 IF FIELD = 0 && ROMCOUNT > 0 THEN LET ROMIDX = MAX(ROMIDX - 1, 0) : LET ROMVAL = ROMLIST[ROMIDX]
-     ELSE IF FIELD = 1 THEN LET YEARVAL = MAX(YEARVAL - 1, 1970)
+3210 IF FIELD = 1 THEN LET YEARVAL = MAX(YEARVAL - 1, 1970)
      ELSE IF FIELD = 2 && CORECOUNT > 0 THEN LET COREIDX = MAX(COREIDX - 1, 0) : LET COREVAL = CORELIST[COREIDX]
      ELSE IF FIELD = 3 THEN LET TTLVAL = MAX(TTLVAL - 1, 0)
      ELSE IF FIELD = 4 THEN LET SPACEIDX = MAX(SPACEIDX - 1, 0) : LET SPACEVAL = SPACELIST[SPACEIDX]
@@ -90,8 +83,7 @@
 3280 END
 
 3300 REM JOYPAD_RIGHT: increase the value of the current field
-3310 IF FIELD = 0 && ROMCOUNT > 0 THEN LET ROMIDX = MIN(ROMIDX + 1, ROMCOUNT - 1) : LET ROMVAL = ROMLIST[ROMIDX]
-     ELSE IF FIELD = 1 THEN LET YEARVAL = YEARVAL + 1
+3310 IF FIELD = 1 THEN LET YEARVAL = YEARVAL + 1
      ELSE IF FIELD = 2 && CORECOUNT > 0 THEN LET COREIDX = MIN(COREIDX + 1, CORECOUNT - 1) : LET COREVAL = CORELIST[COREIDX]
      ELSE IF FIELD = 3 THEN LET TTLVAL = TTLVAL + 1
      ELSE IF FIELD = 4 THEN LET SPACEIDX = MIN(SPACEIDX + 1, SPACECOUNT - 1) : LET SPACEVAL = SPACELIST[SPACEIDX]
@@ -99,12 +91,14 @@
 3370 GOSUB 8310
 3380 END
 
-3400 REM JOYPAD_B: FIELD 5 (AUTHOR) launches the shared keyboard.bas overlay;
-3402 REM FIELD 6 (EXIT) commits SAVE/EXIT-without-save. END below must stay
-3404 REM off the EVENTTRIGGER line -- chaining it corrupts the expression
-3406 REM stack when unwinding back from main_resume (see 3160).
-3410 IF FIELD = 5 THEN GOTO 3430
-3415 IF FIELD = 6 THEN GOSUB 3510 : OFFEVENT "game" : CALL EVENTTRIGGER("main_resume")
+3400 REM JOYPAD_B: FIELD 0 (ROM) launches the shared pickfile.bas overlay;
+3402 REM FIELD 5 (AUTHOR) launches the shared keyboard.bas overlay; FIELD 6
+3404 REM (EXIT) commits SAVE/EXIT-without-save. END below must stay off the
+3406 REM EVENTTRIGGER line -- chaining it corrupts the expression stack when
+3408 REM unwinding back from main_resume (see 3160).
+3410 IF FIELD = 0 THEN GOTO 3910
+     ELSE IF FIELD = 5 THEN GOTO 3430
+     ELSE IF FIELD = 6 THEN GOSUB 3510 : OFFEVENT "game" : CALL EVENTTRIGGER("main_resume")
 3420 END
 
 3421 REM launch keyboard.bas to edit AUTHORVAL; hand off input ownership to
@@ -157,6 +151,36 @@
 3812 GOSUB 8310 : GOSUB 8505
 3814 END
 
+3900 REM JOYPAD_B on FIELD 0 (ROM): launch pickfile.bas to browse the downloads
+3901 REM folder; "game_rom_resume" is already registered (see setup, line 477,
+3902 REM mirrors "game_author_resume" at line 476) -- just point it at this
+3903 REM run's config and go. END below matters for the same reason as the
+3904 REM keyboard launch above: without it, execution would fall through
+3905 REM before the picker overlay has actually been used (RUN returns as
+3906 REM soon as the callee finishes registering its own handlers).
+3910 LET PICKFILEPATH = COMBINEPATH(ROOTPATH(), "downloads")
+3912 LET PICKFILEWILDCARD = "*"
+3914 LET PICKFILETITLE = "SELECT ROM FILE"
+3916 LET PICKFILERESUMEEVENT = "game_rom_resume"
+3918 OFFEVENT "game"
+3920 RUN "pickfile.bas"
+3922 END
+
+3950 REM resume here once pickfile.bas finishes; PICKFILERESULT is "" if the
+3951 REM user cancelled with Y. Re-register game's own control handlers, since
+3952 REM OFFEVENT "game" was called before RUN switched context away. The
+3953 REM picker's content may still be sitting on screen over this whole area
+3954 REM (it doesn't CLS -- see pickfile.bas), so blank every row it could
+3955 REM have covered before redrawing this screen's content (same pattern as
+3956 REM the keyboard-resume block above).
+3960 FOR pfClearRow = 0 TO height - 2
+3962   PRINT 0, pfClearRow, lineEmpty, 0, 0
+3964 NEXT pfClearRow
+3966 IF PICKFILERESULT != "" THEN LET ROMVAL = PICKFILERESULT
+3990 GOSUB 8010 : GOSUB 8110 : GOSUB 8210 : GOSUB 8310 : GOSUB 8505
+3992 GOSUB 8910
+3994 END
+
 8000 REM draw title row
 8010 PRINT 0, 0, SUBSTR("WORKSHOP CABINET CONFIGURATION ---------", 0, width - 1), 0, 0
 8020 SHOW
@@ -175,18 +199,19 @@
 8230 RETURN
 
 8300 REM draw each field row directly (no loop); only the row matching FIELD is inverted
-8310 PRINT 0, 3, lineEmpty, 0, 0 : PRINT 0, 3, "ROM  : < " + ROMVAL + " >", FIELD = 0, 0
+8310 PRINT 0, 3, lineEmpty, 0, 0 : PRINT 0, 3, "ROM  : " + ROMVAL, FIELD = 0, 0
 8320 PRINT 0, 4, lineEmpty, 0, 0 : PRINT 0, 4, "YEAR : < " + STR(YEARVAL) + " >", FIELD = 1, 0
 8330 PRINT 0, 5, lineEmpty, 0, 0 : PRINT 0, 5, "CORE : < " + COREVAL + " >", FIELD = 2, 0
 8340 PRINT 0, 6, lineEmpty, 0, 0 : PRINT 0, 6, "TIME TO LOAD: < " + STR(TTLVAL) + " > (secs)", FIELD = 3, 0
 8350 PRINT 0, 7, lineEmpty, 0, 0 : PRINT 0, 7, "SPACE: < " + SPACEVAL + " >", FIELD = 4, 0
-8355 PRINT 0, 8, lineEmpty, 0, 0 : PRINT 0, 8, "AUTHOR: " + AUTHORVAL + "  (B: EDIT)", FIELD = 5, 0
+8355 PRINT 0, 8, lineEmpty, 0, 0 : PRINT 0, 8, "AUTHOR: " + AUTHORVAL, FIELD = 5, 0
 8360 PRINT 0, 9, lineEmpty, 0, 0 : PRINT 0, 9, "EXIT: < " + IIF(EXITMODE = 0, "SAVE", "EXIT Without save") + " >", FIELD = 6, 0
 8430 SHOW
 8440 RETURN
 
 8500 REM draw footer help line, context-sensitive on FIELD
-8505 IF FIELD = 5 THEN LET foot = "B: EDIT NAME  ^v MOVE  Y:EXIT"
+8505 IF FIELD = 0 THEN LET foot = "B: FIND ROM  ^v MOVE  Y:EXIT"
+     ELSE IF FIELD = 5 THEN LET foot = "B: EDIT NAME  ^v MOVE  Y:EXIT"
      ELSE IF FIELD = 6 THEN LET foot = "<-> SAVE/NO-SAVE  ^v MOVE  Y:EXIT"
      ELSE LET foot = "<-> VALUE  ^v MOVE  Y:EXIT"
 8530 FGCOLOR "WHITE" : BGCOLOR "BLUE"

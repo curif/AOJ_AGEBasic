@@ -123,3 +123,28 @@ underneath once the overlay is done.
 There is no build system, linter, or test runner here — this repo is just source scripts and the language
 spec. Validation of AGEBasic scripts happens by running them inside the Age of Joy VR Arcade runtime, which is
 external to this repository.
+
+### Static line-number check: `tools/validate_bas.py`
+
+One lightweight exception: `tools/validate_bas.py` is a static checker (plain Python, no dependencies) for the
+two "Hard syntax rules" mistakes above that are mechanical enough to catch without executing AGEBasic:
+
+1. Line numbers must be strictly ascending within a file.
+2. `GOTO`/`GOSUB` (including inside `ONEVENT`/`ONCUSTOM` registrations) must never target a blank or
+   comment-only (`REM ...`) line.
+
+Run it after editing any `.bas` file, before considering the edit done:
+
+```
+python3 tools/validate_bas.py                  # checks every *.bas file in the repo
+python3 tools/validate_bas.py workshop/foo.bas  # checks specific files
+```
+
+It exits non-zero if it finds a problem. It does **not** understand AGEBasic semantics — it can't catch a
+missing `END` in an event handler, unbalanced `IF/THEN`, or an undocumented command — so it's a supplement to
+careful reading, not a replacement for it. Note that it currently flags a number of pre-existing `GOTO`/`GOSUB`
+targets across `configcabs.bas`, `workshop/keyboard.bas`, `workshop/game.bas`, and `workshop/crt.bas` that point
+at comment-only label lines (the actual code starts a few lines later, at the next numbered line) — this may
+be a real latent bug in those files, or the runtime may tolerate it by falling through to the next executable
+line; it hasn't been confirmed against the actual VR Arcade runtime either way. Treat new findings in files you
+are actively editing as worth fixing; don't go fix pre-existing occurrences in untouched files unless asked.
