@@ -5,30 +5,33 @@
 8 REM   PICKFILEPATH         folder to list (default ROOTPATH())
 9 REM   PICKFILEWILDCARD     MS-DOS style filename wildcard, e.g. "*.zip" (default "*" = all files)
 10 REM   PICKFILETITLE        prompt text shown above the filter field (default "SELECT FILE")
-11 REM   PICKFILERESUMEEVENT  name of the ONCUSTOM event the caller registered
-12 REM                        during ITS OWN setup (not inside a nested handler
-13 REM                        right before RUN-ing this script) -- fired via
-14 REM                        EVENTTRIGGER once a file is chosen (B in list mode)
-15 REM                        or cancelled (Y) (default "pickfile_done")
-16 REM Result: PICKFILERESULT holds the chosen filename, or "" if cancelled.
-17 REM Layout: this callee does NOT CLS -- it only uses rows 3.. and the footer row
-18 REM (height-1), the same zone-ownership rule game.bas's own content follows (see
-19 REM CLAUDE.md "Screen zone ownership"). It blanks that zone itself on entry with
-20 REM a solid DBOX (like keyboard.bas's gray panel) so leftover caller content
-21 REM can't show through gaps its own PRINTs don't cover. Caller must still blank
-22 REM its own zone before redrawing once PICKFILERESUMEEVENT fires (see game.bas's
-23 REM keyboard-resume block for the reference pattern).
-24 REM Paging: files are fetched one screen page at a time via GETFILESARRAY's native
-25 REM wildcard/pageOffset/pageCount args -- there is no full in-memory file list, so
-26 REM this scales to large directories. Filtering is done by editing PF_WILDCARD via
-27 REM the keyboard.bas overlay (press B while the filter field is focused, see line
-28 REM 4000). DOWN/UP at the bottom/top edge of the visible page loads the adjacent
-29 REM page, showing a "Loading..." line meanwhile (see line 9100) -- GETFILESARRAY
-30 REM itself is synchronous, so this is a UX flash, not a real async wait.
+11 REM   PICKFILEDIRSONLY     1 = list subfolders of PICKFILEPATH (via GETDIRSARRAY) instead of
+12 REM                        files (default 0 = files, via GETFILESARRAY)
+13 REM   PICKFILERESUMEEVENT  name of the ONCUSTOM event the caller registered
+14 REM                        during ITS OWN setup (not inside a nested handler
+15 REM                        right before RUN-ing this script) -- fired via
+16 REM                        EVENTTRIGGER once a file is chosen (B in list mode)
+17 REM                        or cancelled (Y) (default "pickfile_done")
+18 REM Result: PICKFILERESULT holds the chosen filename, or "" if cancelled.
+19 REM Layout: this callee does NOT CLS -- it only uses rows 3.. and the footer row
+20 REM (height-1), the same zone-ownership rule game.bas's own content follows (see
+21 REM CLAUDE.md "Screen zone ownership"). It blanks that zone itself on entry with
+22 REM a solid DBOX (like keyboard.bas's gray panel) so leftover caller content
+23 REM can't show through gaps its own PRINTs don't cover. Caller must still blank
+24 REM its own zone before redrawing once PICKFILERESUMEEVENT fires (see game.bas's
+25 REM keyboard-resume block for the reference pattern).
+26 REM Paging: files are fetched one screen page at a time via GETFILESARRAY's native
+27 REM wildcard/pageOffset/pageCount args -- there is no full in-memory file list, so
+28 REM this scales to large directories. Filtering is done by editing PF_WILDCARD via
+29 REM the keyboard.bas overlay (press B while the filter field is focused, see line
+30 REM 4000). DOWN/UP at the bottom/top edge of the visible page loads the adjacent
+31 REM page, showing a "Loading..." line meanwhile (see line 9100) -- GETFILESARRAY
+32 REM itself is synchronous, so this is a UX flash, not a real async wait.
 
 40 DECLARE PICKFILEPATH = ROOTPATH()
 50 DECLARE PICKFILEWILDCARD = "*"
 60 DECLARE PICKFILETITLE = "SELECT FILE"
+65 DECLARE PICKFILEDIRSONLY = 0
 70 DECLARE PICKFILERESUMEEVENT = "pickfile_done"
 
 80 LET PF_WILDCARD = PICKFILEWILDCARD
@@ -199,7 +202,8 @@
 9105 GOSUB 8310
 9110 PRINT 0, PF_LISTTOP, SUBSTR("Loading...", 0, width - 1), 0, 0
 9115 SHOW
-9120 LET PF_RAW = GETFILESARRAY(PICKFILEPATH, 0, PF_WILDCARD, PF_PAGEOFFSET, PF_PAGESIZE + 1)
+9120 IF PICKFILEDIRSONLY = 1 THEN LET PF_RAW = GETDIRSARRAY(PICKFILEPATH, 0, PF_WILDCARD, PF_PAGEOFFSET, PF_PAGESIZE + 1)
+     ELSE LET PF_RAW = GETFILESARRAY(PICKFILEPATH, 0, PF_WILDCARD, PF_PAGEOFFSET, PF_PAGESIZE + 1)
 9125 LET PF_RAWCOUNT = LEN(PF_RAW)
 9130 LET PF_HASNEXT = (PF_RAWCOUNT > PF_PAGESIZE)
 9135 LET PF_LISTCOUNT = MIN(PF_RAWCOUNT, PF_PAGESIZE)

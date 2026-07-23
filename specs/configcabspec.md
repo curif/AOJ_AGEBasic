@@ -66,7 +66,7 @@ Pressing `A` will exit the subprogram.
 
 - user manual: `/mnt/d/AgeOfJoyQuartzDoc\content\Documents\Cabinets\CDL the Cabinet Description Language.md `
 - the cabinet configuration in .net: `/mnt/c/Users\curif\desarr\ageofjoy.0.5.1\AgeOfJoy-2022.1\Assets\curif\LibRetroWrapper\CabinetInformation.cs`
-- the AGEBasic user manual: /mnt/d/AgeOfJoyQuartzDoc/content/Documents/AGEBasic/AGEBasic programing.md
+- the AGEBasic user manual: `/mnt/d/AgeOfJoyQuartzDoc/content/Documents/AGEBasic/AGEBasic programing.md`
 
 # Next step
 

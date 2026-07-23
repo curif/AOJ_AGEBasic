@@ -1,5 +1,5 @@
 
-20 LET CABNAME = "test"
+20 DECLARE CABNAME = "test"
 30 LET CRTTYPELIST = ARRAY("19i", "19i-fresnel", "19i-agebasic", "32i", "50i", "circle", "square", "19i-2x1", "19i-1x2", "19i-3x1", "19i-3x1-18deg", "dome-concave", "dome-convex", "no-crt", "custom")
 70 LET CRTTYPECOUNT = LEN(CRTTYPELIST)
 90 LET ORIENTLIST = ARRAY("vertical", "horizontal")
