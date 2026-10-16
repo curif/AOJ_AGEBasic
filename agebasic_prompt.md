@@ -187,6 +187,61 @@ No-argument functions returning standard device folders. Use with `COMBINEPATH()
 *   `DEBUGPATH()`: Folder for debug output/logs.
 *   `VIDEOPATH()`: Folder for video playback files (see §9).
 
+### Internet Archive & Downloads
+
+Read cabinet packs published on archive.org and download their cabinets (see `docs/sharing_cabinets_archive_org.md`). Network calls never block: **start** the work, then **poll** its status with `SLEEP` between checks. A script that polls without `SLEEP` wastes the 2ms/frame CPU budget.
+
+*   `IALOAD(idOrUrl)`: Starts loading an archive.org item (a cabinet pack). Accepts the identifier (`cabinet-pack-1-1`) or the item URL (`https://archive.org/details/cabinet-pack-1-1`). Returns the identifier.
+*   `IASEARCH(query)`: Starts an archive.org search for packs and returns a handle. `""` searches every pack tagged with the subject `ageofjoy-cabinets` (anyone can add the tag to their item). Any other archive.org query works too, e.g. `collection:something`.
+*   `IAPACKS(handle)`: Array with the pack identifiers found by `IASEARCH`, newest first, or `""` if none or not ready. Pass each one to `IALOAD`.
+*   `IASTATUS(id)`: also accepts an `IASEARCH` handle (`"LOADING"`, `"READY"` or `"FAILED"`). For a pack: `"LOADING"`, `"READY"`, `"PROCESSING"` (archive.org is still processing the item), `"DARK"` (taken down), `"NOTFOUND"`, `"FAILED"` (network error) or `"UNKNOWN"` (never loaded).
+*   `IAINFO(id, field)`: Pack information. `field`: `"title"`, `"description"`, `"count"` (number of cabinets) or `"identifier"`.
+*   `IACABS(id)`: Array with the cabinet zip names (`"galaga.zip"`, ...), or `""` if the pack has none or isn't loaded.
+*   `IACABINFO(id, cabinet, field)`: Information about one cabinet; `cabinet` is `"galaga"` or `"galaga.zip"`. `field`: `"name"`, `"description"`, `"size"` (bytes), `"md5"`, `"url"` (the file address on archive.org) or `"downloaded"`: `0` = not downloaded, `1` = downloaded with the same md5, `2` = downloaded but with a different md5 (an update is available). "Downloaded" means the cabinet zip is waiting in `CABINETSPATH()` or was already unpacked into `CABINETSDBPATH()`.
+*   `IADOWNLOAD(id, cabinet)`: Queues the download of a cabinet (`"galaga"` or `"galaga.zip"`) of a loaded pack into `CABINETSPATH()` and returns the cabinet file name. The file is written as `<name>.part` and renamed only when complete and its md5 matches, so a cabinet zip never appears half downloaded. A cabinet already downloaded with the same md5 is not downloaded again.
+*   `IADOWNLOADSTATUS(id, cabinet)`: `"QUEUED"`, `"DOWNLOADING"`, `"COMPLETED"`, `"FAILED"` or `"NOTFOUND"`.
+*   `IADOWNLOADPROGRESS(id, cabinet)`: Percentage, `0` to `100`.
+
+A downloaded cabinet zip is installed automatically on the next app start, or right away with `CABDBINSTALL` (see "Installing a cabinet" below).
+
+```basic
+10 LET PACK = IALOAD("https://archive.org/details/cabinet-pack-1-1")
+20 SLEEP 0.5
+30 IF IASTATUS(PACK) = "LOADING" THEN GOTO 20
+40 IF IASTATUS(PACK) != "READY" THEN PRINT 0, 0, "PACK ERROR: " + IASTATUS(PACK) : END
+50 LET CABS = IACABS(PACK)
+60 FOR I = 0 TO LEN(CABS) - 1
+70   PRINT 0, I, CABS[I] + " " + IACABINFO(PACK, CABS[I], "description")
+80 NEXT I
+90 SHOW
+100 CALL IADOWNLOAD(PACK, CABS[0])
+110 SLEEP 0.5
+120 IF IADOWNLOADSTATUS(PACK, CABS[0]) = "QUEUED" || IADOWNLOADSTATUS(PACK, CABS[0]) = "DOWNLOADING" THEN GOTO 110
+130 PRINT 0, 20, "RESULT: " + IADOWNLOADSTATUS(PACK, CABS[0])
+140 SHOW
+150 IF IADOWNLOADSTATUS(PACK, CABS[0]) != "COMPLETED" THEN END
+```
+
+#### Installing a cabinet
+
+*   `CABDBINSTALL(cabinet)`: Starts installing `CABINETSPATH()/<cabinet>.zip` (`"galaga"` or `"galaga.zip"`). It runs on a background thread, so it never stalls the frame. The install unpacks the zip into `CABINETSDBPATH()/<cabinet>/` (replacing that folder if it already exists), deletes the zip, and, once finished, adds the cabinet to the cabinet list used by `CABDBCOUNT`, `CABDBGETNAME` and `CABDBSEARCH`. Returns `1` if the install started or is already running. Throws a runtime error when the name is empty or `"test"` (the workshop slot is reserved), the zip doesn't exist, or the zip has no `description.yaml` at its root.
+*   `CABDBINSTALLSTATUS(cabinet)`: `"INSTALLING"`, `"INSTALLED"`, `"FAILED"` or `"NOTFOUND"` (no install was requested in this session). **Poll it until it isn't `"INSTALLING"`**: the cabinet is added to the in-memory cabinet list by the poll that first sees the install finished. If the script never polls, the files are still on disk and the cabinet is picked up on the next app start.
+
+Reinstalling a cabinet that's already placed in a room replaces its files, but the live 3D cabinet doesn't change until it is reloaded (`CABROOMREPLACE` or reloading the room).
+
+Continuing the example above — install the downloaded cabinet and place it at position 3 of the current room:
+```basic
+160 LET CABNAME = IACABINFO(PACK, CABS[0], "name")
+170 CALL CABDBINSTALL(CABNAME)
+180 SLEEP 0.5
+190 IF CABDBINSTALLSTATUS(CABNAME) = "INSTALLING" THEN GOTO 180
+200 IF CABDBINSTALLSTATUS(CABNAME) != "INSTALLED" THEN PRINT 0, 21, "INSTALL FAILED" : SHOW : END
+210 CALL CABDBASSIGN(ROOMNAME(), 3, CABNAME)
+220 CALL CABDBSAVE()
+230 CALL CABROOMREPLACE(3, CABNAME)
+240 END
+```
+
 ---
 
 ## 6. Screen & Drawing Commands
@@ -305,6 +360,7 @@ AGEBasic can inspect and change which cabinet game occupies each position in a r
 *   `CABDBDELETE(room, position)`: Removes the registry entry at `room`/`position`. Throws a runtime error if nothing is assigned there.
 *   `CABDBSAVE()`: Persists all in-memory registry changes (`CABDBADD`/`CABDBASSIGN`/`CABDBDELETE`) to `registry.yaml`. **Required** — those three only mutate memory; without a matching `CABDBSAVE()` the changes are lost the next time the room reloads.
 *   `CABDBRELOAD()`: Re-reads `registry.yaml` from disk into memory, discarding any unsaved in-memory changes, and re-scans the cabinet DB folder for unassigned cabinets. **Also reconciles the currently loaded room**: any position whose live 3D cabinet no longer matches what the reloaded registry assigns is swapped in-place (same swap used by `CABROOMREPLACE`). Positions with no registry entry are left untouched. Use when the registry file was modified outside the running script (e.g. by another process or a manual edit) and the script needs to see the current on-disk state, including an immediately updated room.
+*   `CABDBINSTALL(cabinet)` / `CABDBINSTALLSTATUS(cabinet)`: Install a cabinet zip from `CABINETSPATH()` into the cabinet DB (see §5 "Installing a cabinet").
 
 **Typical pattern to durably swap a cabinet from a script** (mirrors what the in-VR Configuration Room UI does internally):
 ```basic
@@ -428,7 +484,7 @@ Plays `.sid` files (PSID/RSID v1–v4) through the cabinet's AudioSource. Suppor
 20 SIDLOAD "sfx",   COMBINEPATH(AGEBASICPATH(), "music/zap.sid")
 30 SIDVOLUME "music", 70 : SIDVOLUME "sfx", 60
 40 SIDPLAY "music"
-50 IF CONTROLACTIVE("JOYPAD_B_0") THEN SIDPLAY "sfx", 1
+50 IF CONTROLACTIVE("JOYPAD_B") THEN SIDPLAY "sfx", 1
 60 SLEEP 0.05 : GOTO 50
 ```
 
